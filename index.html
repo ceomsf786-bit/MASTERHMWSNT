@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SNT Homework Submissions</title>
+  <meta name="description" content="SNT homework and task submission app for approved students." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <header class="app-header no-print">
+    <div class="brand">
+      <div class="brand-icon" aria-label="SNT logo">SNT</div>
+      <div>
+        <h1>SNT Task Submit</h1>
+        <p>Homework • Tasks • Teacher Review</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span id="userBadge" class="user-badge hidden"></span>
+      <button id="logoutBtn" class="btn btn-ghost hidden" type="button">Logout</button>
+    </div>
+  </header>
+
+  <main id="app" class="app-shell">
+    <section id="configScreen" class="panel hidden">
+      <h2>Connect Supabase</h2>
+      <p>Your <code>config.js</code> file still has placeholder values.</p>
+      <ol>
+        <li>Create a Supabase project.</li>
+        <li>Run <code>supabase-schema.sql</code> in Supabase SQL Editor.</li>
+        <li>Copy <code>config.sample.js</code> to <code>config.js</code>.</li>
+        <li>Add your Supabase URL and anon/publishable key.</li>
+      </ol>
+    </section>
+
+    <section id="loginScreen" class="login-card hidden">
+      <div class="login-logo">SNT</div>
+      <h2>Student / Teacher Login</h2>
+      <p class="muted">No Supabase Auth emails. Enter the email and password/PIN supplied by the teacher.</p>
+      <form id="loginForm" class="stack">
+        <label>
+          Email address
+          <input id="emailInput" type="email" placeholder="student@example.com" autocomplete="email" required />
+        </label>
+        <label>
+          Password / PIN
+          <input id="passwordInput" type="password" placeholder="Password given by teacher" autocomplete="current-password" required />
+        </label>
+        <button class="btn btn-primary" data-login-mode="student" type="submit">Student login</button>
+        <button class="btn btn-ghost" data-login-mode="teacher" type="submit">Teacher login</button>
+      </form>
+      <p id="loginMessage" class="notice hidden"></p>
+    </section>
+
+    <section id="blockedScreen" class="panel hidden">
+      <h2>Not approved yet</h2>
+      <p>This email/password is not approved for Student View, or it is not a teacher login.</p>
+      <p class="muted">Ask the teacher to add your email and password in the Teacher View → Approved Students.</p>
+    </section>
+
+    <section id="studentScreen" class="screen hidden">
+      <div class="screen-title no-print">
+        <div>
+          <h2>Student View</h2>
+          <p class="muted">Open a task, write your answer, upload a picture, then submit.</p>
+        </div>
+        <button id="refreshStudentBtn" class="btn btn-ghost" type="button">Refresh</button>
+      </div>
+
+      <div class="layout-two">
+        <aside class="panel no-print">
+          <h3>Tasks list</h3>
+          <div class="filters">
+            <label>
+              Search
+              <input id="studentSearch" type="search" placeholder="Search task/title/subject" />
+            </label>
+            <label>
+              Filter
+              <select id="studentStatusFilter">
+                <option value="all">All tasks</option>
+                <option value="open">Open / not submitted</option>
+                <option value="submitted">Submitted</option>
+              </select>
+            </label>
+          </div>
+          <div id="studentTasksList" class="task-list"></div>
+        </aside>
+
+        <section id="studentTaskPanel" class="panel">
+          <div class="empty-state">
+            <h3>Select a task</h3>
+            <p>Tasks will show on the left. Open one to submit your answer.</p>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="teacherScreen" class="screen hidden">
+      <div class="screen-title no-print">
+        <div>
+          <h2>Teacher View</h2>
+          <p class="muted">Manage tasks, approve students, view submissions, and print/save PDF previews.</p>
+        </div>
+        <button id="refreshTeacherBtn" class="btn btn-ghost" type="button">Refresh</button>
+      </div>
+
+      <nav class="tabs no-print" aria-label="Teacher tabs">
+        <button class="tab active" data-teacher-tab="tasks" type="button">Manage Tasks</button>
+        <button class="tab" data-teacher-tab="students" type="button">Approved Students</button>
+        <button class="tab" data-teacher-tab="submissions" type="button">View Submissions</button>
+      </nav>
+
+      <section id="teacherTasksTab" class="teacher-tab panel">
+        <div class="section-grid">
+          <form id="taskForm" class="stack card-form no-print">
+            <h3>Add New Task</h3>
+            <label>
+              Title
+              <input id="taskTitle" type="text" placeholder="e.g. Grade 6 English Summary" required />
+            </label>
+            <label>
+              Subject / Group
+              <input id="taskSubject" type="text" placeholder="e.g. English / Grade 6" />
+            </label>
+            <label>
+              Due date
+              <input id="taskDueDate" type="date" />
+            </label>
+            <label>
+              Teacher instructions / text
+              <textarea id="taskInstructions" rows="6" placeholder="Type full homework instructions here..." required></textarea>
+            </label>
+            <label>
+              Image URL (optional)
+              <input id="taskImageUrl" type="url" placeholder="https://..." />
+            </label>
+            <label>
+              Link URL (optional)
+              <input id="taskLinkUrl" type="url" placeholder="https://..." />
+            </label>
+            <label class="checkbox-row">
+              <input id="taskActive" type="checkbox" checked />
+              Active / visible to students
+            </label>
+            <button class="btn btn-primary" type="submit">Save task</button>
+          </form>
+
+          <div>
+            <h3>Current Tasks</h3>
+            <div id="teacherTasksList" class="teacher-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="teacherStudentsTab" class="teacher-tab panel hidden">
+        <div class="section-grid">
+          <form id="studentApprovalForm" class="stack card-form no-print">
+            <h3>Approve Student Email</h3>
+            <label>
+              Student name (optional)
+              <input id="approvedStudentName" type="text" placeholder="Student name" />
+            </label>
+            <label>
+              Student email
+              <input id="approvedStudentEmail" type="email" placeholder="student@example.com" required />
+            </label>
+            <label>
+              Student password / PIN
+              <input id="approvedStudentPassword" type="text" placeholder="e.g. 1234 or abc123" autocomplete="off" />
+            </label>
+            <p class="muted">For a new student, enter a password. When editing, leave blank to keep the old password.</p>
+            <label class="checkbox-row">
+              <input id="approvedStudentActive" type="checkbox" checked />
+              Active / allowed to enter
+            </label>
+            <button class="btn btn-primary" type="submit">Approve student</button>
+          </form>
+
+          <div>
+            <h3>Approved Students</h3>
+            <div id="approvedStudentsList" class="teacher-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="teacherSubmissionsTab" class="teacher-tab panel hidden">
+        <div class="review-toolbar no-print">
+          <label>
+            Filter by task
+            <select id="submissionTaskFilter">
+              <option value="all">All tasks</option>
+            </select>
+          </label>
+          <label>
+            Search student
+            <input id="submissionStudentSearch" type="search" placeholder="student email/name" />
+          </label>
+          <button id="printReviewBtn" class="btn btn-primary" type="button">PDF export preview / Print</button>
+        </div>
+
+        <div id="printArea" class="print-area">
+          <div class="print-header">
+            <div class="brand-icon small">SNT</div>
+            <div>
+              <h2>SNT Homework Submissions</h2>
+              <p id="printGeneratedText" class="muted"></p>
+            </div>
+          </div>
+          <div id="submissionsList" class="submission-list"></div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+</body>
+</html>
