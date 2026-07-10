@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SNT Homework Beta 10.7</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="config.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <header class="app-header no-print">
+    <div class="brand">
+      <div class="brand-icon">SNT</div>
+      <div>
+        <h1>SNT Homework</h1>
+        <p>Tasks • Submissions • Scores</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span id="userBadge" class="user-badge hidden"></span>
+      <button id="refreshBtn" class="btn btn-ghost hidden" type="button">Refresh</button>
+      <button id="logoutBtn" class="btn btn-ghost hidden" type="button">Logout</button>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <section id="loginScreen" class="login-card">
+      <h2>Login</h2>
+      <p class="muted">Enter your SNT email and password. The app will open the correct teacher or student view.</p>
+      <form id="loginForm">
+        <label>Email
+          <input id="loginEmail" type="email" autocomplete="username" placeholder="example@gmail.com" required />
+        </label>
+        <label>Password / PIN
+          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Enter password" required />
+        </label>
+        <button class="btn" type="submit">Login</button>
+      </form>
+      <p class="small muted">Demo/test teacher default from SQL: <strong>sntutors2025@gmail.com</strong> / <strong>123456</strong></p>
+    </section>
+
+    <section id="studentScreen" class="screen hidden">
+      <div class="screen-title no-print">
+        <div>
+          <h2>Student View</h2>
+          <p class="muted">Clear homework blocks, status colours, files, submissions, and scores.</p>
+        </div>
+      </div>
+
+      <div id="studentScoreOverview" class="score-overview"></div>
+
+      <div class="layout-two">
+        <aside class="panel panel-black no-print">
+          <div class="panel-headline">
+            <h3>1. Filter Tasks</h3>
+            <span class="badge">Black border section</span>
+          </div>
+          <div class="filters">
+            <div class="filter-title">Choose what to show</div>
+            <label>Search task
+              <input id="studentSearch" type="search" placeholder="Search title, subject, instructions" />
+            </label>
+            <label>Status
+              <select id="studentStatusFilter">
+                <option value="all">All tasks</option>
+                <option value="open">Open / due</option>
+                <option value="submitted">Submitted</option>
+                <option value="reviewed">Reviewed</option>
+                <option value="overdue">Overdue</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="panel-headline">
+            <h3>2. Tasks List</h3>
+            <span id="studentTaskCount" class="badge">0</span>
+          </div>
+          <div id="studentTasksList" class="task-list"></div>
+        </aside>
+
+        <section class="panel panel-black">
+          <div class="panel-headline no-print">
+            <h3>3. Actual Homework Task</h3>
+            <span class="badge">Open task here</span>
+          </div>
+          <div id="studentTaskPanel">
+            <div class="empty-state">
+              <h3>Select a task on the left</h3>
+              <p>The actual homework task will open here with big previews.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="teacherScreen" class="screen hidden">
+      <div class="screen-title no-print">
+        <div>
+          <h2>Teacher View</h2>
+          <p id="teacherNameLine" class="muted">Manage tasks, students, submissions, scores, and safe deletes.</p>
+        </div>
+      </div>
+
+      <nav class="tabs no-print">
+        <button class="tab active" data-tab="tasks" type="button">Tasks / Quizzes</button>
+        <button class="tab" data-tab="students" type="button">Students</button>
+        <button class="tab" data-tab="teachers" type="button">Teachers</button>
+        <button class="tab" data-tab="submissions" type="button">Submissions</button>
+        <button class="tab" data-tab="scores" type="button">Scores</button>
+      </nav>
+
+      <section id="teacherTasksTab" class="teacher-tab grid">
+        <div class="panel panel-black">
+          <div class="panel-headline">
+            <h3 id="taskFormTitle">Add New Task / Quiz</h3>
+            <button id="clearTaskFormBtn" class="btn btn-ghost btn-sm" type="button">Clear form</button>
+          </div>
+          <form id="taskForm" class="grid">
+            <input id="taskIdInput" type="hidden" />
+            <div class="grid-2">
+              <label>Title
+                <input id="taskTitle" type="text" required placeholder="e.g. Fractions Homework" />
+              </label>
+              <label>Subject / Group
+                <input id="taskSubject" type="text" placeholder="e.g. Grade 6 Maths" />
+              </label>
+            </div>
+            <div class="grid-3">
+              <label>Due date and time
+                <input id="taskDueAt" type="datetime-local" />
+              </label>
+              <label>Total score
+                <input id="taskTotalScore" type="number" min="0" step="0.5" value="10" />
+              </label>
+              <label>Allocate to
+                <select id="taskAllocationType">
+                  <option value="all">All active students</option>
+                  <option value="grade">Grade only</option>
+                  <option value="students">Selected student/s</option>
+                  <option value="grade_students">Grade + selected student/s</option>
+                </select>
+              </label>
+            </div>
+            <div class="grid-2">
+              <label>Grade
+                <input id="taskTargetGrade" type="text" placeholder="Grade 6" />
+              </label>
+              <label>Selected students
+                <input id="taskTargetStudents" type="hidden" />
+                <div id="taskStudentPicker" class="student-picker" aria-label="Approved student selector"></div>
+                <span class="muted small">Tick approved students from the list below. Use this for selected student/s or grade + selected student/s.</span>
+              </label>
+            </div>
+            <label>Instructions / questions
+              <textarea id="taskInstructions" required placeholder="Write the full task/questions here. These will export with the student answer."></textarea>
+            </label>
+            <label>Teacher files for students: images/PDFs/documents
+              <input id="taskFilesInput" type="file" multiple accept="image/*,.pdf,.doc,.docx,.txt" />
+            </label>
+            <div id="taskFilesPreview" class="preview-list"></div>
+            <div class="btn-row">
+              <button class="btn" type="submit">Save Task / Quiz</button>
+              <span class="muted small">You can upload multiple files before saving.</span>
+            </div>
+          </form>
+        </div>
+
+        <div class="panel">
+          <div class="panel-headline">
+            <h3>All Tasks / Quizzes</h3>
+            <div class="btn-row">
+              <label class="small">View
+                <select id="teacherTaskOwnerFilter">
+                  <option value="all">All teacher tasks</option>
+                  <option value="mine">My tasks only</option>
+                </select>
+              </label>
+              <label class="small">Search
+                <input id="teacherTaskSearch" type="search" placeholder="Search tasks" />
+              </label>
+            </div>
+          </div>
+          <div id="teacherTasksList" class="task-list"></div>
+        </div>
+      </section>
+
+      <section id="teacherStudentsTab" class="teacher-tab grid hidden">
+        <div class="panel panel-black">
+          <div class="panel-headline"><h3>Add / Edit Student</h3></div>
+          <form id="studentForm" class="grid">
+            <div class="grid-2">
+              <label>Student email
+                <input id="studentEmail" type="email" required placeholder="student@gmail.com" />
+              </label>
+              <label>Student name
+                <input id="studentName" type="text" placeholder="Student name" />
+              </label>
+            </div>
+            <div class="grid-3">
+              <label>Grade
+                <input id="studentGrade" type="text" required placeholder="Grade 6" />
+              </label>
+              <label>Password / PIN
+                <input id="studentPassword" type="text" placeholder="Leave blank to keep existing" />
+              </label>
+              <label>Status
+                <select id="studentActive">
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
+              </label>
+            </div>
+            <button class="btn" type="submit">Save Student</button>
+          </form>
+        </div>
+        <div class="panel">
+          <div class="panel-headline"><h3>Approved Students</h3></div>
+          <div id="studentsTable" class="table-wrap"></div>
+        </div>
+      </section>
+
+      <section id="teacherTeachersTab" class="teacher-tab grid hidden">
+        <div class="panel panel-black">
+          <div class="panel-headline"><h3>Add / Edit Teacher</h3></div>
+          <form id="teacherForm" class="grid">
+            <div class="grid-2">
+              <label>Teacher email
+                <input id="teacherEmail" type="email" required placeholder="teacher@gmail.com" />
+              </label>
+              <label>Teacher name
+                <input id="teacherName" type="text" placeholder="Teacher name" />
+              </label>
+            </div>
+            <div class="grid-2">
+              <label>Password / PIN
+                <input id="teacherPassword" type="text" placeholder="Leave blank to keep existing" />
+              </label>
+              <label>Status
+                <select id="teacherActive">
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
+              </label>
+            </div>
+            <button class="btn" type="submit">Save Teacher</button>
+          </form>
+        </div>
+        <div class="panel">
+          <div class="panel-headline"><h3>Teachers</h3></div>
+          <div id="teachersTable" class="table-wrap"></div>
+        </div>
+      </section>
+
+      <section id="teacherSubmissionsTab" class="teacher-tab grid hidden">
+        <div class="panel panel-black no-print">
+          <div class="panel-headline"><h3>Filter Submissions</h3></div>
+          <div class="grid-4">
+            <label>Task
+              <select id="submissionTaskFilter"><option value="all">All tasks</option></select>
+            </label>
+            <label>Student
+              <select id="submissionStudentFilter"><option value="all">All students</option></select>
+            </label>
+            <label>Status
+              <select id="submissionStatusFilter">
+                <option value="all">All</option>
+                <option value="submitted">Submitted</option>
+                <option value="reviewed">Reviewed / closed</option>
+              </select>
+            </label>
+            <label>Search
+              <input id="submissionSearch" type="search" placeholder="Search answer/student/task" />
+            </label>
+          </div>
+        </div>
+        <div id="submissionsList" class="grid"></div>
+      </section>
+
+      <section id="teacherScoresTab" class="teacher-tab grid hidden">
+        <div class="panel panel-black no-print">
+          <div class="panel-headline"><h3>Scores Filters</h3></div>
+          <div class="grid-3">
+            <label>Grade
+              <select id="scoreGradeFilter"><option value="all">All grades</option></select>
+            </label>
+            <label>Student
+              <select id="scoreStudentFilter"><option value="all">All students</option></select>
+            </label>
+            <label>Search
+              <input id="scoreSearch" type="search" placeholder="Search" />
+            </label>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-headline"><h3>Student Scores and Totals</h3></div>
+          <div id="scoresTable" class="table-wrap"></div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div id="modalRoot" class="hidden"></div>
+  <div id="toast" class="toast hidden"></div>
+</body>
+</html>
