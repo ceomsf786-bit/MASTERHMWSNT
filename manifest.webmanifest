@@ -1,0 +1,15 @@
+{
+  "name": "SNT Homework",
+  "short_name": "SNT",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f7fbf8",
+  "theme_color": "#16803c",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%2316803c'/%3E%3Ctext x='64' y='78' text-anchor='middle' font-size='38' font-family='Arial,sans-serif' font-weight='800' fill='white'%3ESNT%3C/text%3E%3C/svg%3E",
+      "sizes": "128x128",
+      "type": "image/svg+xml"
+    }
+  ]
+}
