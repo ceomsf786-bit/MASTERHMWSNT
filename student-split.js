@@ -46,7 +46,7 @@
     if (!detail || detail.dataset.sntSplit === '1') return;
 
     const hr = [...detail.children].find(el => el.tagName === 'HR');
-    if (!hr) return; // selected task not fully rendered yet
+    if (!hr) return;
 
     const shell = document.createElement('div');
     shell.className = 'snt-student-split-shell';
@@ -139,17 +139,14 @@
   }
 
   function enhanceTaskLinks(root) {
-    const cards = $$('.task-link-card', root);
-    cards.forEach(card => {
-      if (card.dataset.sntEmbedReady === '1') return;
+    // Remove the legacy new-tab target. Click handling is delegated globally
+    // below so it still works after any app re-render on PC, tablet or phone.
+    $$('.task-link-card', root).forEach(card => {
       const href = safeUrl(card.getAttribute('href'));
       if (!href) return;
       card.dataset.sntEmbedReady = '1';
       card.removeAttribute('target');
-      card.addEventListener('click', evt => {
-        evt.preventDefault();
-        openEmbeddedResource(root, href, $('strong', card)?.textContent || href);
-      });
+      card.setAttribute('title', 'Open this resource above while keeping your answer below');
     });
   }
 
@@ -165,8 +162,8 @@
           <button type="button" class="btn btn-ghost btn-sm" data-close-embed>Close viewer</button>
         </div>
       </div>
-      <div class="snt-embed-help">The website is shown inside SNT when it allows embedding. If it blocks this, use <strong>Open externally</strong>.</div>
-      <iframe class="snt-embed-frame" loading="lazy" referrerpolicy="no-referrer-when-downgrade" sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts allow-downloads"></iframe>`;
+      <div class="snt-embed-help">This resource opens inside SNT. If the website blocks embedding, use <strong>Open externally</strong>.</div>
+      <iframe class="snt-embed-frame" loading="eager" referrerpolicy="no-referrer-when-downgrade" sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts allow-downloads"></iframe>`;
     $('strong', card).textContent = title;
     const open = $('a', card);
     open.href = href;
@@ -174,7 +171,38 @@
     frame.src = href;
     $('[data-close-embed]', card).addEventListener('click', () => card.remove());
     root.prepend(card);
+
+    const shell = root.closest('.snt-student-split-shell');
+    shell?.classList.remove('show-bottom-only');
+    const scroller = root.closest('.snt-split-scroll');
+    if (scroller) scroller.scrollTo({ top: 0, behavior: 'smooth' });
   }
+
+  // IMPORTANT: capture-phase delegated handler. The original app renders task
+  // links with target="_blank". A listener attached only to the current link
+  // could be lost whenever the task panel re-renders. This handler catches
+  // every student resource-link click first and routes it into the top pane.
+  document.addEventListener('click', evt => {
+    if (!isStudentVisible()) return;
+    const card = evt.target.closest?.('a.task-link-card');
+    if (!card) return;
+    const href = safeUrl(card.getAttribute('href'));
+    if (!href) return;
+
+    evt.preventDefault();
+    evt.stopPropagation();
+    evt.stopImmediatePropagation();
+
+    let root = card.closest('.snt-task-original-content');
+    if (!root) {
+      enhanceCurrentTask();
+      root = $('.snt-task-original-content', document.getElementById('studentTaskPanel') || document);
+    }
+    if (!root) return;
+
+    card.removeAttribute('target');
+    openEmbeddedResource(root, href, $('strong', card)?.textContent || href);
+  }, true);
 
   function watch() {
     const panel = document.getElementById('studentTaskPanel');
